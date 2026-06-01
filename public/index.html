@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Subtitler</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Subtitler</h1>
+      <p class="sub">Drop a video. Get word-synced captions burned in. Download MP4.</p>
+    </header>
+
+    <section id="step-upload" class="card">
+      <label class="drop" id="drop">
+        <input type="file" id="file" accept="video/*" hidden />
+        <div class="drop-inner">
+          <div class="drop-title">Drop a video here</div>
+          <div class="drop-sub">or click to choose &middot; up to 999 MB</div>
+          <div class="filename" id="filename"></div>
+        </div>
+      </label>
+
+      <div class="grid">
+        <div class="field">
+          <label>Font</label>
+          <select id="font"></select>
+        </div>
+        <div class="field">
+          <label>Style</label>
+          <select id="style">
+            <option value="karaoke" selected>Word-by-word (karaoke)</option>
+            <option value="phrase">Phrase lines</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Text colour</label>
+          <input type="color" id="accent" value="#FFFFFF" />
+        </div>
+        <div class="field">
+          <label>Font size</label>
+          <input type="number" id="fontSize" min="40" max="180" step="2" value="84" />
+        </div>
+        <div class="field">
+          <label>Position</label>
+          <select id="positionV">
+            <option value="bottom" selected>Bottom</option>
+            <option value="middle">Middle</option>
+          </select>
+        </div>
+        <div class="field check">
+          <label><input type="checkbox" id="uppercase" /> UPPERCASE</label>
+        </div>
+      </div>
+
+      <details class="script">
+        <summary>Optional: paste the exact script (improves spelling)</summary>
+        <textarea id="script" rows="5" placeholder="Paste your spoken script here. We'll use audio timing but your words."></textarea>
+      </details>
+
+      <button id="go" class="primary" disabled>Generate subtitles</button>
+    </section>
+
+    <section id="step-progress" class="card hidden">
+      <div class="progress">
+        <div class="bar" id="bar"></div>
+      </div>
+      <div class="status" id="status">Starting&hellip;</div>
+    </section>
+
+    <section id="step-result" class="card hidden">
+      <video id="result" controls playsinline></video>
+      <div class="actions">
+        <a id="download" class="primary" download>Download MP4</a>
+        <button id="edit" class="secondary">Fix captions</button>
+        <button id="again" class="secondary">New video</button>
+      </div>
+    </section>
+
+    <section id="step-edit" class="card hidden">
+      <div class="edit-head">
+        <h2>Fix captions</h2>
+        <p class="sub">
+          Click any line to fix mishears, capitalization, or spelling.
+          Only edited lines re-render &mdash; no re-upload, no re-transcription.
+        </p>
+      </div>
+      <div id="captions" class="captions"></div>
+      <div class="actions">
+        <button id="rerender" class="primary">Re-render with edits</button>
+        <button id="cancelEdit" class="secondary">Back</button>
+      </div>
+    </section>
+
+    <footer>
+      <span>Powered by ElevenLabs Scribe + ffmpeg. Runs locally.</span>
+    </footer>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

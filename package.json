@@ -1,0 +1,20 @@
+{
+  "name": "subtitler",
+  "version": "0.1.0",
+  "description": "Drop a video in, get word-synced subtitles burned into MP4.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "fonts": "bash fonts/download.sh"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "^0.1.56",
+    "express": "^4.19.2",
+    "multer": "^1.4.5-lts.1"
+  }
+}
