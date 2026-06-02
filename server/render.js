@@ -14,11 +14,21 @@ import { createCanvas, loadImage } from "@napi-rs/canvas";
  */
 export async function composeVideo({ videoPath, events, outputPath, posV = "bottom", onProgress }) {
   const meta = await probeVideo(videoPath);
-  const { width: W, height: H, fps, duration } = meta;
+  const { width: srcW, height: srcH, fps, duration } = meta;
 
-  if (!W || !H || !fps || !duration) {
+  if (!srcW || !srcH || !fps || !duration) {
     throw new Error(`probe failed: ${JSON.stringify(meta)}`);
   }
+
+  // Cap the working resolution to ~1080p on the shorter side. High-res (4K)
+  // frames are the main memory hog: each RGBA frame is W*H*4 bytes, so 4K is
+  // ~33 MB/frame vs ~8 MB at 1080p. Downscaling keeps us under the 512 MB
+  // free-tier limit and looks identical on phones/social. We never upscale.
+  // Use an even scale factor so the resulting dimensions are even (yuv420p).
+  const shortSide = Math.min(srcW, srcH);
+  const scale = shortSide > 1080 ? 1080 / shortSide : 1;
+  const W = scale < 1 ? Math.round((srcW * scale) / 2) * 2 : srcW;
+  const H = scale < 1 ? Math.round((srcH * scale) / 2) * 2 : srcH;
 
   // Compute each event's frame range up front, but DON'T decode the images yet.
   // Decoding every caption PNG at once is the main memory hog (a word-by-word
@@ -34,6 +44,13 @@ export async function composeVideo({ videoPath, events, outputPath, posV = "bott
 
   const totalFrames = Math.ceil(duration * fps);
 
+  // When downscaling, scale the source to match the caption layer's
+  // dimensions before compositing; otherwise overlay the two directly.
+  const filter =
+    scale < 1
+      ? `[0:v]scale=${W}:${H}[bg];[bg][1:v]overlay=0:0:format=auto[v]`
+      : "[0:v][1:v]overlay=0:0:format=auto[v]";
+
   const args = [
     "-y",
     // Input 0: source video
@@ -45,13 +62,16 @@ export async function composeVideo({ videoPath, events, outputPath, posV = "bott
     "-framerate", String(fps),
     "-i", "pipe:0",
     // Composite (overlay handles the alpha)
-    "-filter_complex", "[0:v][1:v]overlay=0:0:format=auto[v]",
+    "-filter_complex", filter,
     "-map", "[v]",
     "-map", "0:a?",
     "-c:v", "libx264",
     "-preset", "veryfast",
     "-crf", "20",
     "-pix_fmt", "yuv420p",
+    // Cap encoder threads to keep libx264's per-thread frame buffers from
+    // ballooning memory on the constrained free tier.
+    "-threads", "2",
     "-c:a", "copy",
     "-movflags", "+faststart",
     "-progress", "pipe:2",
@@ -100,12 +120,16 @@ export async function composeVideo({ videoPath, events, outputPath, posV = "bott
         loadedImg = await loadImage(active.pngPath);
         loadedIdx = activeIdx;
       }
-      const x = Math.round((W - active.width) / 2);
+      // Caption PNGs are sized for the ORIGINAL resolution; scale them by the
+      // same factor as the video so they stay proportional on the 1080p canvas.
+      const cw = Math.round(active.width * scale);
+      const ch = Math.round(active.height * scale);
+      const x = Math.round((W - cw) / 2);
       const y =
         posV === "middle"
-          ? Math.round((H - active.height) / 2)
-          : Math.round(H - active.height - H * 0.18);
-      ctx.drawImage(loadedImg, x, y);
+          ? Math.round((H - ch) / 2)
+          : Math.round(H - ch - H * 0.18);
+      ctx.drawImage(loadedImg, x, y, cw, ch);
     } else if (loadedImg) {
       loadedImg = null;
       loadedIdx = -1;
