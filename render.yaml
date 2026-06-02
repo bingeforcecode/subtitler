@@ -5,10 +5,11 @@ services:
     plan: free
     dockerfilePath: ./Dockerfile
     envVars:
-      # Lower the upload cap on the small free instance so it doesn't run out
-      # of memory. 1-3 minute clips are well under this.
+      # Upload cap for the free instance. Rendering memory is now flat (~180 MB
+      # at any resolution), so the real limits are disk space and time, not RAM.
+      # 500 MB leaves headroom on the small free disk.
       - key: MAX_UPLOAD_MB
-        value: "200"
+        value: "500"
       # Your ElevenLabs key — set the actual value in the Render dashboard,
       # NOT here (keeps it out of your public code).
       - key: ELEVENLABS_API_KEY
