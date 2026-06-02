@@ -13,6 +13,11 @@
       <p class="sub">Drop a video. Get word-synced captions burned in. Download MP4.</p>
     </header>
 
+    <nav class="tabs">
+      <button id="tab-subtitle" class="tab active">Subtitle</button>
+      <button id="tab-compress" class="tab">Compress</button>
+    </nav>
+
     <section id="step-upload" class="card">
       <label class="drop" id="drop">
         <input type="file" id="file" accept="video/*" hidden />
@@ -61,6 +66,30 @@
       </details>
 
       <button id="go" class="primary" disabled>Generate subtitles</button>
+    </section>
+
+    <section id="step-compress" class="card hidden">
+      <label class="drop" id="cdrop">
+        <input type="file" id="cfile" accept="video/*" hidden />
+        <div class="drop-inner">
+          <div class="drop-title">Drop a big video here</div>
+          <div class="drop-sub">or click to choose &middot; shrink it down to share or subtitle</div>
+          <div class="filename" id="cfilename"></div>
+        </div>
+      </label>
+
+      <div class="grid">
+        <div class="field">
+          <label>Target size (MB)</label>
+          <input type="number" id="targetMB" min="10" max="2000" step="10" value="200" />
+        </div>
+        <div class="field check">
+          <label><input type="checkbox" id="scale1080" checked /> Downscale to 1080p</label>
+        </div>
+      </div>
+      <p class="hint">Two-pass encode aims for your target size. Downscaling 4K&rarr;1080p shrinks files a lot with little visible loss.</p>
+
+      <button id="cgo" class="primary" disabled>Compress video</button>
     </section>
 
     <section id="step-progress" class="card hidden">

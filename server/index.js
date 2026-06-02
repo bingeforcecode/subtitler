@@ -9,6 +9,7 @@ import { randomUUID, timingSafeEqual } from "node:crypto";
 import { transcribe } from "./transcribe.js";
 import { buildCaptionEvents, renderEventPng } from "./subtitles.js";
 import { composeVideo } from "./render.js";
+import { compressVideo } from "./compress.js";
 import { FONTS, findFont, ensureFontsRegistered } from "./fonts.js";
 
 ensureFontsRegistered();
@@ -195,6 +196,44 @@ app.post("/api/jobs", upload.single("video"), async (req, res) => {
         job.events = [];
         job.videoPath = null;
       }
+    }
+  })();
+});
+
+// Standalone compressor: shrink a video toward a target size (MB).
+app.post("/api/compress", upload.single("video"), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "missing video file" });
+  let targetMB = parseInt(req.body.targetMB || "200", 10);
+  if (!Number.isFinite(targetMB) || targetMB < 10) targetMB = 200;
+  const scale1080 = req.body.scale1080 !== "false"; // default on
+
+  const job = newJob();
+  res.json({ id: job.id });
+
+  (async () => {
+    try {
+      updateJob(job.id, { status: "running", step: "compressing", progress: 5 });
+      const outputPath = join(RENDERS, `${job.id}.mp4`);
+      await compressVideo({
+        videoPath: req.file.path,
+        targetMB,
+        scale1080,
+        outputPath,
+        tmpDir: TMP,
+        jobId: job.id,
+        onProgress: (p) => updateJob(job.id, { progress: 5 + Math.round(p * 92) }),
+      });
+      updateJob(job.id, {
+        status: "done",
+        step: "done",
+        progress: 100,
+        outputPath: `/renders/${job.id}.mp4`,
+      });
+    } catch (err) {
+      console.error("compress failed", job.id, err);
+      updateJob(job.id, { status: "error", error: err?.message || String(err) });
+    } finally {
+      if (req.file?.path) { try { await unlink(req.file.path); } catch {} }
     }
   })();
 });
