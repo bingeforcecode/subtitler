@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
-import { readFile, unlink } from "node:fs/promises";
+import { unlink } from "node:fs/promises";
+import { openAsBlob } from "node:fs";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 
@@ -34,17 +35,16 @@ function extractAudio(videoPath, audioPath) {
  * response which includes a `words` array with `start`/`end` timestamps.
  */
 async function callScribe({ audioPath, apiKey }) {
-  const buf = await readFile(audioPath);
+  // Back the upload by the file on disk instead of reading it all into RAM.
+  // openAsBlob streams from disk, so fetch sends the audio without holding
+  // multiple full copies in memory (important on the small free instance).
+  const blob = await openAsBlob(audioPath, { type: "audio/wav" });
   const form = new FormData();
   form.append("model_id", "scribe_v1");
   form.append("timestamps_granularity", "word");
   form.append("diarize", "false");
   form.append("tag_audio_events", "false");
-  form.append(
-    "file",
-    new Blob([buf], { type: "audio/wav" }),
-    "audio.wav"
-  );
+  form.append("file", blob, "audio.wav");
 
   const resp = await fetch(SCRIBE_URL, {
     method: "POST",
