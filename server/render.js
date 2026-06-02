@@ -20,16 +20,17 @@ export async function composeVideo({ videoPath, events, outputPath, posV = "bott
     throw new Error(`probe failed: ${JSON.stringify(meta)}`);
   }
 
-  // Load each pre-rendered event PNG once.
-  const evs = await Promise.all(
-    events.map(async (e) => ({
+  // Compute each event's frame range up front, but DON'T decode the images yet.
+  // Decoding every caption PNG at once is the main memory hog (a word-by-word
+  // video has hundreds). Instead we load each image only while it's on screen
+  // and release it once it passes, so memory stays flat (~1 image at a time).
+  const evs = events
+    .map((e) => ({
       ...e,
-      img: await loadImage(e.pngPath),
       startF: Math.floor(e.start * fps),
       endF: Math.max(Math.floor(e.start * fps) + 1, Math.ceil(e.end * fps)),
     }))
-  );
-  evs.sort((a, b) => a.startF - b.startF);
+    .sort((a, b) => a.startF - b.startF);
 
   const totalFrames = Math.ceil(duration * fps);
 
@@ -82,6 +83,8 @@ export async function composeVideo({ videoPath, events, outputPath, posV = "bott
 
   let activeIdx = 0;
   let lastReportedAt = 0;
+  let loadedIdx = -1;     // which event's image is currently decoded
+  let loadedImg = null;   // the decoded image (at most one alive at a time)
 
   for (let f = 0; f < totalFrames; f++) {
     // Advance past events that have ended.
@@ -91,12 +94,21 @@ export async function composeVideo({ videoPath, events, outputPath, posV = "bott
 
     ctx.clearRect(0, 0, W, H);
     if (active) {
+      // Decode this event's PNG on demand; drop the previous one so the
+      // garbage collector can reclaim it (keeps memory flat).
+      if (loadedIdx !== activeIdx) {
+        loadedImg = await loadImage(active.pngPath);
+        loadedIdx = activeIdx;
+      }
       const x = Math.round((W - active.width) / 2);
       const y =
         posV === "middle"
           ? Math.round((H - active.height) / 2)
           : Math.round(H - active.height - H * 0.18);
-      ctx.drawImage(active.img, x, y);
+      ctx.drawImage(loadedImg, x, y);
+    } else if (loadedImg) {
+      loadedImg = null;
+      loadedIdx = -1;
     }
 
     const imgData = ctx.getImageData(0, 0, W, H);
